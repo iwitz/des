@@ -143,6 +143,27 @@ int PC2[48]={ 14,17,11,24,1 ,5 ,
    printf("code : %lx\n", code);
    *mot = code;
  }
+ 
+ /* inversion
+  * inverse les "size" premiers bits avec les "size" suivants
+  */
+ void inversion(unsigned long* mot, int size) {
+	
+	unsigned long mask_a = 0; //masque de gauche
+	unsigned long mask_b = 0; //masque de droite
+	int i;
+	for (i = 0; i < size; i++)
+	{
+		mask_a = (mask_a << 1) + 1;
+		mask_b = (mask_b << 1) + 1;
+	}
+	mask_a = mask_a << size; //on décale le masque de "size" bits
+	
+	unsigned long mot_a = (*mot & mask_a) >> size; //on récupère la partie de gauche, et on la place en partie de droite
+	unsigned long mot_b = (*mot & mask_b) << size; //on récupère la partie de droite, et on la place en partie de gauche
+	
+	*mot = mot_a + mot_b; //on concatène les deux parties
+}
 
 
 /**
