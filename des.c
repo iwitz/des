@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #define ROUNDS 16;
 
@@ -135,12 +136,12 @@ int PC2[48]={ 14,17,11,24,1 ,5 ,
  	 code ^= (-value ^ code) & (1UL << position);
    *mot = code;
  }
- 
+
  /* inversion
   * inverse les "size" premiers bits avec les "size" suivants
   */
- void inversion(uint64_t long* mot, int size) {
-	
+ void inversion(uint64_t * mot, int size) {
+
 	uint64_t mask_a = 0; //masque de gauche
 	uint64_t mask_b = 0; //masque de droite
 	int i;
@@ -150,10 +151,10 @@ int PC2[48]={ 14,17,11,24,1 ,5 ,
 		mask_b = (mask_b << 1) + 1;
 	}
 	mask_a = mask_a << size; //on décale le masque de "size" bits
-	
+
 	uint64_t mot_a = (*mot & mask_a) >> size; //on récupère la partie de gauche, et on la place en partie de droite
 	uint64_t mot_b = (*mot & mask_b) << size; //on récupère la partie de droite, et on la place en partie de gauche
-	
+
 	*mot = mot_a + mot_b; //on concatène les deux parties
 }
 
@@ -165,7 +166,6 @@ int PC2[48]={ 14,17,11,24,1 ,5 ,
  {
    uint64_t res;
    int i = 0;
-   uint64_t bit;
    for (i = 0; i < taille; i++)
    {
       setBit(&res, i, getBit(*mot, ordre[i] - 1));
