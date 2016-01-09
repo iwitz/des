@@ -97,7 +97,7 @@ int P[32]={ 16, 7,20,21,29,12,28,17,
 
 // choix permut� dans la diversification de la cl�
 
-int PC1[64] = { 57,49,41,33,25,17,9 ,1 ,58,50,42,34,26,18,
+int PC1[56] = { 57,49,41,33,25,17,9 ,1 ,58,50,42,34,26,18,
                 10,2 ,59,51,43,35,27,19,11,3 ,60,52,44,36,
                 63,55,47,39,31,23,15,7 ,62,54,46,38,30,22,
                 14,6 ,61,53,45,37,29,21,13,5 ,28,20,12,4 };
@@ -209,6 +209,107 @@ void permute( uint64_t * mot, int * ordre, int taille )
    }
    *mot = res;
 }
+
+*
+ * shift cyclique (les "shift_size" premiers bits sont placés au début du mot de taille "total_size")
+ */
+void circular_shift (uint64_t * mot, int shift_size, int total_size)
+{
+	//masque de shift_size
+	uint64_t mask = 0;
+	int i;
+	for (i = 0; i < shift_size; i++)
+		mask = (mask << 1) + 1;
+		
+	/* on applique le masque pour récupérer la partie à shift 
+	 * on décale vers la gauche
+	 * on additionne au mot shifté vers la droite
+	 */	
+	uint64_t res = ((*mot & mask) << (total_size - shift_size)) + (*mot >> shift_size);
+	*mot = res;
+}
+ 
+ /* génération des clés 
+  * on permute l'entrée avec PC1 pour avoir une clé de 56 bits
+  * (pour le premier tour de boucle, on utilise la clé sortant de PC1, sinon la sortie du tour de boucle précédent
+  * on inverse la clé sur 28 bits
+  * on applique le shift cyclique sur chaque moitié en fonction de l'index de la boucle
+  * on concatène et on la stocke pour le prochain tour de bloc
+  * on permute la concaténation avec PC2 pour avoir une clé de 48 bits
+  * on l'ajoute au tableau des clés générées
+  */
+  /* clés attendues : 
+  * Diversification de la clé 0123456789abcdef
+	clé numéro 1 : b02679b49a5
+	clé numéro 2 : 69a659256a26
+	clé numéro 3 : 45d48ab428d2
+	clé numéro 4 : 7289d2a58257
+	clé numéro 5 : 3ce80317a6c2
+	clé numéro 6 : 23251e3c8545
+	clé numéro 7 : 6c04950ae4c6
+	clé numéro 8 : 5788386ce581
+	clé numéro 9 : c0c9e926b839
+	clé numéro 10 : 91e307631d72
+	clé numéro 11 : 211f830d893a
+	clé numéro 12 : 7130e5455c54
+	clé numéro 13 : 91c4d04980fc
+	clé numéro 14 : 5443b681dc8d
+	clé numéro 15 : b691050a16b5
+	clé numéro 16 : ca3d03b87032
+  */
+ void key_generation( uint64_t * key, uint64_t * keys_tab )
+ {
+	 uint64_t key_round = *key; //la clé utilisée pour le tour de boucle
+	 permute(&key_round, PC1, 56);
+	 int i;
+	 for(i = 1; i <= 16; i++)
+	 { 
+		 //printf("entrée : %lx\n", key_round);
+		 //inverse la clé sur 28 bits
+		uint64_t key_temp = key_round;
+		inversion(&key_temp, 56);
+		//printf("inversion : %lx\n", key_temp);
+		
+		//sépare en deux blocs de 28
+		uint64_t * split = malloc( sizeof(uint64_t) * 2 ); //tableau pour les deux blocs
+		decoupage(&key_temp, split, 2, 56);
+		
+		// si le tour est à 1, 2, 9 ou 16, le shift est de 1, sinon 2
+		int nb_shift;
+		if(i == 1 || i == 2 || i == 9 || i == 16)
+			nb_shift = 1;
+		else
+			nb_shift = 2;
+			
+		// on applique le shift au deux blocs
+		uint64_t bloc_a = split[0];
+		//printf("bloc a : %lx\n", bloc_a);
+		circular_shift(&bloc_a, nb_shift, 28);
+		//printf("shift : %lx\n", bloc_a);
+		uint64_t bloc_b = split[1];
+		//printf("bloc b : %lx\n", bloc_b);
+		circular_shift(&bloc_b, nb_shift, 28);
+		//printf("shift : %lx\n", bloc_b);
+		
+		// on concatène les deux blocs
+		key_temp = (bloc_a << 28) + bloc_b;
+		//printf("concat : %lx\n", key_temp);
+		
+		// on stocke le résultat pour le prochain tour de boucle
+		key_round = key_temp;
+		//printf("round : %lx\n", key_round);
+		
+		// on applique PC2 sur la clé
+		permute(&key_temp, PC2, 48);
+		//printf("%d, : %lx\n\n", i, key_temp);
+		
+		// on libère la tableau split
+		free(split);
+		
+		// on l'ajoute au tableau de clés générées
+		keys_tab[i-1] = key_temp;
+	 }
+ }
 
 /*
  * Chiffrement pour la question A
@@ -327,7 +428,13 @@ void questioncCExpansion(uint64_t * mot)
    questioncCExpansion(&bloc);
    printf("%lx\n", bloc);
 
-
+	bloc = 0x0123456789ABCDEFUL;
+	printf("\nGénération des clés de %lx\n", bloc);
+	uint64_t * keys= malloc(sizeof(uint64_t) * 16);
+	key_generation(&bloc, keys);
+	int x;
+	for (x = 0; x < 16; x ++)
+		printf("clé %d : %lx\n", x, keys[x]);
 
  	 return 1;
  }
