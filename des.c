@@ -120,37 +120,29 @@ int PC2[48]={ 14,17,11,24,1 ,5 ,
 /*  getBit
  *  renvoie le ième bit en partant de la droite et commençant à 0
  */
- unsigned long getBit(unsigned long mot, int position)
- {
-   unsigned long mask = 1 << position;
-   printf("masque : %lx\n", mask);
- 	 unsigned long res = mot & mask;
-   printf("res : %lx\n", res);
- 	 res = res >> position;
-   printf("res : %lx\n", res);
-
- 	 return res;
- }
+  size_t getBit(uint64_t mot, uint64_t position)
+  {
+   uint64_t temp = mot >> position;
+   return temp & 0x1;
+  }
 
 /*  setBit
  * modifie le ième bit en partant de la droite et indexé à partir de 0
  */
- void setBit(unsigned long* mot, int position, unsigned long value)
+ void setBit(uint64_t* mot, int position, uint64_t value)
  {
-   unsigned long code = (unsigned long) *mot;
-   printf("code : %lx\n", code);
- 	 code ^= (-value ^ code) & (1 << position);
-   printf("code : %lx\n", code);
+   uint64_t code = *mot;
+ 	 code ^= (-value ^ code) & (1UL << position);
    *mot = code;
  }
  
  /* inversion
   * inverse les "size" premiers bits avec les "size" suivants
   */
- void inversion(unsigned long* mot, int size) {
+ void inversion(uint64_t long* mot, int size) {
 	
-	unsigned long mask_a = 0; //masque de gauche
-	unsigned long mask_b = 0; //masque de droite
+	uint64_t mask_a = 0; //masque de gauche
+	uint64_t mask_b = 0; //masque de droite
 	int i;
 	for (i = 0; i < size; i++)
 	{
@@ -159,43 +151,38 @@ int PC2[48]={ 14,17,11,24,1 ,5 ,
 	}
 	mask_a = mask_a << size; //on décale le masque de "size" bits
 	
-	unsigned long mot_a = (*mot & mask_a) >> size; //on récupère la partie de gauche, et on la place en partie de droite
-	unsigned long mot_b = (*mot & mask_b) << size; //on récupère la partie de droite, et on la place en partie de gauche
+	uint64_t mot_a = (*mot & mask_a) >> size; //on récupère la partie de gauche, et on la place en partie de droite
+	uint64_t mot_b = (*mot & mask_b) << size; //on récupère la partie de droite, et on la place en partie de gauche
 	
 	*mot = mot_a + mot_b; //on concatène les deux parties
 }
 
 
-/**
- void permute(unsigned int *bits, const bit *mapping, int n)
+/*
+  * permute les valeurs de mot dans l'ordre de la matrice ordre
+  */
+ void permute( uint64_t * mot, int * ordre, int taille )
  {
-
-   unsigned char      temp[8];
-   int i;
-   memset(temp, 0, (int)ceil(n / <img src="./images/smilies/icon_cool.gif" alt="8)" title="Cool">);
-
-   for (i = 0; i < n; i++)
-      bit_set(temp, i, bit_get(bits, mapping[i] - 1));
-
-   memcpy(bits, temp, (int)ceil(n / <img src="./images/smilies/icon_cool.gif" alt="8)" title="Cool">);
-
-   return;
-
- }**/
+   uint64_t res;
+   int i = 0;
+   uint64_t bit;
+   for (i = 0; i < taille; i++)
+   {
+      setBit(&res, i, getBit(*mot, ordre[i] - 1));
+    }
+    printf("\n\n%lx" , *mot);
+    printf("\n\n%lx\n" , res);
+    *mot = res;
+ }
 
  int main(int argc, char *argv[])
  {
-   unsigned long cle = 0x0123456789ABCDEF;
-   printf("%lx\n", cle);
+   //uint64_t long cle = 0x0123456789ABCDEF;
+   uint64_t bloc = 0x0123456789ABCDEFUL;
 
- 	 unsigned long res = getBit(cle, 5);
-   printf("%lx\n", res);
-
-
- 	 setBit(&cle, 5, 0);
- 	 printf("%lx\n", cle);
-   res = getBit(cle, 5);
-   printf("%lx\n", res);
+   // après permutation initiale bloc doit valoir  0x cc00ccfff0aaf0aa : vrai
+   printf(" Permutation intiale :  %lx\n", bloc);
+   permute(&bloc, PI, 64);
 
 
 
