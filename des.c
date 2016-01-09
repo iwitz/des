@@ -111,13 +111,50 @@ int PC2[48]={ 14,17,11,24,1 ,5 ,
               44,49,39,56,34,53,
               46,42,50,36,29,32};
 
-///note : on utilisera des unsigned int pour les nombres sur 32 bits
-/// et des unsigned long pour des 64 bits
+int EXP[48] = {  32, 1, 2, 3, 4, 5,
+                  4, 5, 6, 7, 8, 9,
+                  8, 9,10,11,12,13,
+                 12,13,14,15,16,17,
+                 16,17,18,19,20,21,
+                 20,21,22,23,24,25,
+                 24,25,26,27,28,29,
+                 28,29,30,31,32, 1};
 
-/*
- *  opérations sur les bits
+
+/* notes :
+ *  -on utilisera des uint64_t et des uint32_t selon le nombre de bits du bloc
+ *  -uint64_t -> décimal : %lu
+ *  -utin32_t -> hexa : %lx
  */
 
+/* découpage
+ * découpe un bloc de droite à gauche et met les résultats dans un tableau de blocs
+ */
+ void decoupage(uint64_t * mot, uint64_t * res, int nbParties, int taille)
+ {
+   int i;
+   int taillebloc = taille / nbParties;
+   uint64_t masque = 0;
+   uint64_t masqueCourant;
+
+   //création du masque sur le nombre de bits nécessaires à la séparation d'un bloc
+   for(i = 0; i < taillebloc ; i++)
+   {
+     masque = (masque << 1 ) +  1;
+   }
+   //application du masque aux différentes parties du bloc
+   for(i = 0; i < nbParties; i++)
+   {
+     int decalage = i*taillebloc;
+
+     masqueCourant = masque << ( decalage ) ;
+
+     uint64_t blocCourant = ( *mot & masqueCourant ) >> decalage;
+
+     res[i] = blocCourant;
+   }
+
+ }
 /*  getBit
  *  renvoie le ième bit en partant de la droite et commençant à 0
  */
@@ -140,40 +177,117 @@ int PC2[48]={ 14,17,11,24,1 ,5 ,
  /* inversion
   * inverse les "size" premiers bits avec les "size" suivants
   */
- void inversion(uint64_t * mot, int size) {
-
-	uint64_t mask_a = 0; //masque de gauche
-	uint64_t mask_b = 0; //masque de droite
-	int i;
-	for (i = 0; i < size; i++)
-	{
-		mask_a = (mask_a << 1) + 1;
-		mask_b = (mask_b << 1) + 1;
-	}
-	mask_a = mask_a << size; //on décale le masque de "size" bits
-
-	uint64_t mot_a = (*mot & mask_a) >> size; //on récupère la partie de gauche, et on la place en partie de droite
-	uint64_t mot_b = (*mot & mask_b) << size; //on récupère la partie de droite, et on la place en partie de gauche
-
-	*mot = mot_a + mot_b; //on concatène les deux parties
+ void inversion(uint64_t * mot, int size)
+ {
+  //découpage en deux parties
+  uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
+  decoupage(mot, moities, 2, 64);
+  //inversion des moitiés
+  uint64_t res = ( moities[0] << 32 ) + (moities[1] );
+  free(moities);
+	*mot = res;
 }
 
+/*
+ *  Fonction f de la question A
+ */
+uint64_t fA( uint64_t i )
+{
+  return 37453123 * i;
+}
 
 /*
-  * permute les valeurs de mot dans l'ordre de la matrice ordre
-  */
- void permute( uint64_t * mot, int * ordre, int taille )
- {
-   uint64_t res;
-   int i = 0;
-   for (i = 0; i < taille; i++)
-   {
-      setBit(&res, i, getBit(*mot, ordre[i] - 1));
-    }
-    printf("\n\n%lx" , *mot);
-    printf("\n\n%lx\n" , res);
-    *mot = res;
- }
+ * permute les valeurs de mot dans l'ordre de la matrice ordre
+ */
+void permute( uint64_t * mot, int * ordre, int taille )
+{
+  uint64_t res;
+  int i = 0;
+  for (i = 0; i < taille; i++)
+  {
+     setBit(&res, i, getBit(*mot, ordre[i] - 1));
+   }
+   *mot = res;
+}
+
+/*
+ * Chiffrement pour la question A
+ */
+void chiffrementA( uint64_t  * mot )
+{
+  uint64_t i;
+  uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
+  for( i=0 ; i < 16 ; i++)
+  {
+      //découpage en deux parties
+      decoupage(mot, moities, 2, 64);
+
+      //on applique le masque, et on shift les 32 bits en première partie
+      uint64_t bloc_l = moities[0] << 32;
+      //on shift les 32 bits en deuxième partie, puis on effectue un XOR avec le résultat de la fonction
+      uint64_t bloc_r = ( moities[1] ) ^ fA(i);
+      //on concatène les deux moitiés
+      *mot = bloc_l + bloc_r;
+  }
+  free(moities);
+  inversion(mot, 64);
+}
+
+/*
+ *  déchiffrement pour la question A
+ */
+void dechiffrementA ( uint64_t  * mot )
+{
+  inversion(mot, 64);
+  int i;
+  uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
+  for( i=15 ; i >= 0 ; i--)
+  {
+      //découpage en deux parties
+      decoupage(mot, moities, 2, 64);
+
+      //on applique le masque, et on shift les 32 bits en première partie
+      uint64_t bloc_l = ( moities[0] ^ fA((uint64_t)i) ) << 32;
+      //on shift les 32 bits en deuxième partie, puis on effectue un XOR avec le résultat de la fonction
+      uint64_t bloc_r = ( moities[1] ) ;
+      //on concatène les deux moitiés
+      *mot = bloc_l + bloc_r;
+  }
+  free(moities);
+}
+void questionA(uint64_t mot)
+{
+  printf("\nChiffrement question a : \n");
+  printf("Début : %lx \n", mot);
+  chiffrementA(&mot);
+  printf("Fin : %lx \n", mot);
+
+  printf("\nDéchiffrement question a : \n");
+  printf("Début : %lx \n", mot);
+  dechiffrementA(&mot);
+  printf("Fin : %lx \n", mot);
+}
+
+void questionB(uint64_t mot)
+{
+  printf("\nChiffrement question B : \n");
+  printf("Début : %lx \n", mot);
+
+  permute(&mot, PI, 64);
+  chiffrementA(&mot);
+  printf("Fin : %lx \n", mot);
+
+  printf("\nDéchiffrement question B : \n");
+  printf("Début : %lx \n", mot);
+  dechiffrementA(&mot);
+  permute(&mot, PI_INV, 64);
+  printf("Fin : %lx \n", mot);
+}
+
+void questioncCExpansion(uint64_t * mot)
+{
+  permute(mot, EXP, 48 );
+}
 
  int main(int argc, char *argv[])
  {
@@ -181,8 +295,37 @@ int PC2[48]={ 14,17,11,24,1 ,5 ,
    uint64_t bloc = 0x0123456789ABCDEFUL;
 
    // après permutation initiale bloc doit valoir  0x cc00ccfff0aaf0aa : vrai
-   printf(" Permutation intiale :  %lx\n", bloc);
    permute(&bloc, PI, 64);
+   printf("\nPermutation intiale :  %lx\n", bloc);
+
+   ///test de l'inversion : elle fonctionne
+   inversion(&bloc, 32);
+   printf("\nInversion : %lx\n", bloc);
+
+   uint64_t i = 1;
+   printf("\nFonction f question A : %lu\n", fA(i) );
+
+   printf("\nTest de découpage en 4 : \n");
+   bloc = 0x0123456789ABCDEFUL;
+   int k;
+   uint64_t * moitie = malloc( sizeof(uint64_t) * 4 );
+   decoupage(&bloc, moitie, 4, 64);
+   for( k = 0; k < 4; k++)
+   {
+     printf("   RESULTAT : %d : %lx\n", k, moitie[k]);
+   }
+   free(moitie);
+
+   bloc = 0x0123456789ABCDEFUL;
+   questionA(bloc);
+
+   bloc = 0x0123456789ABCDEFUL;
+   questionB(bloc);
+
+   bloc = 0b11101111111111111111111111111111;
+   printf("\nExpansion de %lx\n", bloc);
+   questioncCExpansion(&bloc);
+   printf("%lx\n", bloc);
 
 
 
