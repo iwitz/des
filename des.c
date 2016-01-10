@@ -120,6 +120,7 @@ int EXP[48] = {  32, 1, 2, 3, 4, 5,
                  24,25,26,27,28,29,
                  28,29,30,31,32, 1};
 
+int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
 
 /* notes :
  *  -on utilisera des uint64_t et des uint32_t selon le nombre de bits du bloc
@@ -262,52 +263,48 @@ void circular_shift (uint64_t * mot, int shift_size, int total_size)
 	clé numéro 15 : b691050a16b5
 	clé numéro 16 : ca3d03b87032
   */
- void key_generation( uint64_t * key, uint64_t * keys_tab )
+void key_generation( uint64_t * key, uint64_t * keys_tab )
  {
 	 uint64_t key_round = *key; //la clé utilisée pour le tour de boucle
 	 permute(&key_round, PC1, 56);
 	 int i;
 	 for(i = 1; i <= 16; i++)
-	 {
-		 //printf("entrée : %lx\n", key_round);
+	 { 
+		//printf("entrée : %lx\n", key_round);
 		uint64_t key_temp = key_round;
-
+		
 		//sépare en deux blocs de 28
 		uint64_t * split = malloc( sizeof(uint64_t) * 2 ); //tableau pour les deux blocs
 		decoupage(&key_temp, split, 2, 56);
-
+		
 		// si le tour est à 1, 2, 9 ou 16, le shift est de 1, sinon 2
-		int nb_shift;
-		if(i == 1 || i == 2 || i == 9 || i == 16)
-			nb_shift = 1;
-		else
-			nb_shift = 2;
-
+		int nb_shift = CYCLE[i - 1];
+			
 		// on applique le shift au deux blocs
-		uint64_t bloc_a = split[0];
+		uint64_t bloc_a = split[1];
 		//printf("bloc a : %lx\n", bloc_a);
 		circular_shift(&bloc_a, nb_shift, 28);
 		//printf("shift : %lx\n", bloc_a);
-		uint64_t bloc_b = split[1];
+		uint64_t bloc_b = split[0];
 		//printf("bloc b : %lx\n", bloc_b);
 		circular_shift(&bloc_b, nb_shift, 28);
 		//printf("shift : %lx\n", bloc_b);
-
+		
 		// on concatène les deux blocs
 		key_temp = (bloc_a << 28) + bloc_b;
 		//printf("concat : %lx\n", key_temp);
-
+		
 		// on stocke le résultat pour le prochain tour de boucle
 		key_round = key_temp;
 		//printf("round : %lx\n", key_round);
-
+		
 		// on applique PC2 sur la clé
 		permute(&key_temp, PC2, 48);
 		//printf("%d, : %lx\n\n", i, key_temp);
-
+		
 		// on libère la tableau split
 		free(split);
-
+		
 		// on l'ajoute au tableau de clés générées
 		keys_tab[i-1] = key_temp;
 	 }
@@ -561,7 +558,7 @@ void questionE(uint64_t * mot)
    questioncCExpansion(&bloc);
    printf("%lx\n", bloc);
 
-   ///test de la question D : marche pas
+   ///test de la question D : bah si ça marche
 	 bloc = 0b001100110011010101101010000111111000000000111111;
 	 printf("\nSubstitution de %lx\n", bloc);
 	 questionD(&bloc);
