@@ -323,19 +323,19 @@ void circular_shift (uint64_t * mot, int shift_size, int total_size)
  */
  void substitution ( uint64_t * mot )
  {
+	 printf("substitution : %lx\n", *mot);
 	 uint64_t * split = malloc(sizeof(uint64_t) * 8);
-	 decoupage(mot, split, 6, 48);
+	 decoupage(mot, split, 8, 48);
 	 
 	 uint64_t res = 0;
 	 int i;
 	 for (i = 0; i < 8; i++)
 	 {
-		 uint64_t actual = split[i];
-		 uint64_t row = 2*getBit(actual, 6) + getBit(actual, 1);
-		 uint64_t column = 8*getBit(actual, 5) + 4*getBit(actual, 4) + 2*getBit(actual, 3) + getBit(actual, 2);
-		 
-		 res = (res << 2) + SBOX[i][row][column];
-		 //printf("%d [%lx] : %lx | %lx = %lx\n", i, actual, row, column, res);
+		 uint64_t actual = split[7 - i];
+		 uint64_t row = 2*getBit(actual, 5) + getBit(actual, 0);
+		 uint64_t column = 8*getBit(actual, 4) + 4*getBit(actual, 3) + 2*getBit(actual, 2) + getBit(actual, 1);
+		 res = (res << 4) + SBOX[i][row][column];
+		 //printf("%d r(%lx) : l(%lx) | c(%lx) = s(%d) : res(%lx)\n", i, actual, row, column, SBOX[i][row][column], res);
 	 }
 	 free(split);
 	 *mot = res;
