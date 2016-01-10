@@ -181,9 +181,9 @@ int EXP[48] = {  32, 1, 2, 3, 4, 5,
  {
   //découpage en deux parties
   uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
-  decoupage(mot, moities, 2, 64);
+  decoupage(mot, moities, 2, size);
   //inversion des moitiés
-  uint64_t res = ( moities[0] << 32 ) + (moities[1] );
+  uint64_t res = ( moities[0] << (size/2) ) + (moities[1] );
   free(moities);
 	*mot = res;
 }
@@ -196,21 +196,27 @@ uint64_t fA( uint64_t i )
   return 37453123 * i;
 }
 
+uint64_t fD( uint64_t i )
+{
+  return 0x123456789ABCDEFLU;
+}
+
 /*
  * permute les valeurs de mot dans l'ordre de la matrice ordre
  */
 void permute( uint64_t * mot, int * ordre, int taille )
 {
-  uint64_t res;
+  uint64_t res = 0;
   int i = 0;
   for (i = 0; i < taille; i++)
   {
      setBit(&res, i, getBit(*mot, ordre[i] - 1));
+     //printf("%d | %d : %lx\n", i, ordre[i] - 1, getBit(*mot, ordre[i] - 1));
    }
    *mot = res;
 }
 
-*
+/*
  * shift cyclique (les "shift_size" premiers bits sont placés au début du mot de taille "total_size")
  */
 void circular_shift (uint64_t * mot, int shift_size, int total_size)
@@ -232,7 +238,6 @@ void circular_shift (uint64_t * mot, int shift_size, int total_size)
  /* génération des clés 
   * on permute l'entrée avec PC1 pour avoir une clé de 56 bits
   * (pour le premier tour de boucle, on utilise la clé sortant de PC1, sinon la sortie du tour de boucle précédent
-  * on inverse la clé sur 28 bits
   * on applique le shift cyclique sur chaque moitié en fonction de l'index de la boucle
   * on concatène et on la stocke pour le prochain tour de bloc
   * on permute la concaténation avec PC2 pour avoir une clé de 48 bits
@@ -265,10 +270,7 @@ void circular_shift (uint64_t * mot, int shift_size, int total_size)
 	 for(i = 1; i <= 16; i++)
 	 { 
 		 //printf("entrée : %lx\n", key_round);
-		 //inverse la clé sur 28 bits
 		uint64_t key_temp = key_round;
-		inversion(&key_temp, 56);
-		//printf("inversion : %lx\n", key_temp);
 		
 		//sépare en deux blocs de 28
 		uint64_t * split = malloc( sizeof(uint64_t) * 2 ); //tableau pour les deux blocs
@@ -310,6 +312,35 @@ void circular_shift (uint64_t * mot, int shift_size, int total_size)
 		keys_tab[i-1] = key_temp;
 	 }
  }
+ 
+/*
+ * substitution : mot de 48 bits substitué en code de 32 bits à l'aide des SBoxes
+ * on découpe le mot de 48 en 8 sous-blocs de longueur 6
+ * on créé un code à partir de la matrice[i]
+ * l'index de la ligne sera "b1b6"
+ * l'index de la colonne sera "b2b3b4b5"
+ * on lit le résultat dans la SBox correspondante
+ */
+ void substitution ( uint64_t * mot )
+ {
+	 uint64_t * split = malloc(sizeof(uint64_t) * 8);
+	 decoupage(mot, split, 6, 48);
+	 
+	 uint64_t res = 0;
+	 int i;
+	 for (i = 0; i < 8; i++)
+	 {
+		 uint64_t actual = split[i];
+		 uint64_t row = 2*getBit(actual, 6) + getBit(actual, 1);
+		 uint64_t column = 8*getBit(actual, 5) + 4*getBit(actual, 4) + 2*getBit(actual, 3) + getBit(actual, 2);
+		 
+		 res = (res << 2) + SBOX[i][row][column];
+		 //printf("%d [%lx] : %lx | %lx = %lx\n", i, actual, row, column, res);
+	 }
+	 free(split);
+	 *mot = res;
+ }
+
 
 /*
  * Chiffrement pour la question A
@@ -376,10 +407,12 @@ void questionB(uint64_t mot)
 
   permute(&mot, PI, 64);
   chiffrementA(&mot);
+  permute(&mot, PI_INV, 64);
   printf("Fin : %lx \n", mot);
 
   printf("\nDéchiffrement question B : \n");
   printf("Début : %lx \n", mot);
+  permute(&mot, PI, 64);
   dechiffrementA(&mot);
   permute(&mot, PI_INV, 64);
   printf("Fin : %lx \n", mot);
@@ -388,6 +421,46 @@ void questionB(uint64_t mot)
 void questioncCExpansion(uint64_t * mot)
 {
   permute(mot, EXP, 48 );
+}
+
+void chiffrementD(uint64_t * mot)
+{
+	permute(mot, PI, 64);
+  
+  uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
+  
+  uint64_t res = *mot;
+  int i;
+  for( i=0 ; i < 16 ; i++)
+  {
+      //découpage en deux parties
+      decoupage(&res, moities, 2, 64);
+
+      //on applique le masque, et on shift les 32 bits en première partie
+      uint64_t bloc_l = moities[0] << 32;
+      //on applique la permutation de 48 bits et XOR fonction A
+      uint64_t bloc_r = moities[1];
+      permute(&bloc_r, EXP, 48);
+      bloc_r ^= fD(i);
+      //on applique la substitution (sbox)
+      substitution(&bloc_r);
+      //on applique la permutation de 32 bits
+      permute(&bloc_r, P, 32);
+      
+      //on concatène les deux moitiés
+      res = bloc_l + bloc_r;
+      
+	printf("%d : %lx\n", i, res);
+  }
+  free(moities);
+  *mot = res;
+  inversion(mot, 64);
+  permute(mot, PI_INV, 64);
+}
+
+void questionD(uint64_t * mot)
+{
+
 }
 
  int main(int argc, char *argv[])
@@ -429,12 +502,17 @@ void questioncCExpansion(uint64_t * mot)
    printf("%lx\n", bloc);
 
 	bloc = 0x0123456789ABCDEFUL;
+	printf("\nChiffrement avec sboxes et f() fixe\n");
+	chiffrementD(&bloc);
+	printf("%lx\n", bloc);
+
+	bloc = 0x0123456789ABCDEFUL;
 	printf("\nGénération des clés de %lx\n", bloc);
 	uint64_t * keys= malloc(sizeof(uint64_t) * 16);
 	key_generation(&bloc, keys);
 	int x;
 	for (x = 0; x < 16; x ++)
 		printf("clé %d : %lx\n", x, keys[x]);
-
+	free(keys);
  	 return 1;
  }
