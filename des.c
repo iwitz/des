@@ -3,10 +3,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
-#define ROUNDS 16;
+#include <unistd.h>
 
 //La permutation initiale et son inverse
-
 int PI[64] = {58,50,42,34,26,18,10,2,
               60,52,44,36,28,20,12,4,
               62,54,46,38,30,22,14,6,
@@ -567,42 +566,76 @@ void questionE(uint64_t * mot)
   }
 
 
- int main(int argc, char *argv[])
+ int main(int argc, char * argv[])
  {
-   uint64_t bloc = 0x0123456789ABCDEFUL;
-   uint64_t cle = 0x0123456789ABCDEFUL;
+   char direction = 'z';
+   int c;
+   while ( (c = getopt(argc, argv, "cd"))  != -1)
+   {
+     if( c == 'c' )
+     {
+       direction = 'c';
+     }
+     if( c == 'd' )
+     {
+       direction = 'd';
+     }
+     else
+     {
+       printf("Paramètre inconnu : les paramètres sont -c pour chiffrer et -d pour déchiffrer\n");
+       exit(0);
+     }
+   }
+   printf("%c\n", direction);
 
-   ///Question a : chiffrement sans Pi et PI_INV
-   bloc = 0x0123456789ABCDEFUL;
-   questionA(bloc);
+   if( direction == 'z')
+   {///lancer la démo
+     uint64_t bloc = 0x0123456789ABCDEFUL;
+     uint64_t cle = 0x0123456789ABCDEFUL;
 
-   ///Question b : chiffrement et déchiffrement avec PI et PI_INV
-   bloc = 0x0123456789ABCDEFUL;
-   questionB(bloc);
+     ///Question a : chiffrement sans Pi et PI_INV
+     bloc = 0x0123456789ABCDEFUL;
+     questionA(bloc);
 
-   ///Question c : expansion
-   bloc = 0xefffffff;
-   questionC(&bloc);
-   // valeur attendue : 0xf5ffffffffff
+     ///Question b : chiffrement et déchiffrement avec PI et PI_INV
+     bloc = 0x0123456789ABCDEFUL;
+     questionB(bloc);
 
-   ///Question d : substitution
-   bloc = 0b001100110011010101101010000111111000000000111111;
-   questionD(&bloc);
-   // valeur attendue : 0xB65BC14B
+     ///Question c : expansion
+     bloc = 0xefffffff;
+     questionC(&bloc);
+     // valeur attendue : 0xf5ffffffffff
 
-   ///Question e : chiffrement et déchiffrement avec fonction f complète
-   bloc = 0x0123456789ABCDEFUL;
-   questionE(&bloc);
+     ///Question d : substitution
+     bloc = 0b001100110011010101101010000111111000000000111111;
+     questionD(&bloc);
+     // valeur attendue : 0xB65BC14B
 
-   ///Question f : génération des clés
-   bloc = 0x0123456789ABCDEFUL;
-   questionF(cle);
+     ///Question e : chiffrement et déchiffrement avec fonction f complète
+     bloc = 0x0123456789ABCDEFUL;
+     questionE(&bloc);
 
-   ///Question G : chiffrement et déchiffrement complet
-   bloc = 0x0123456789ABCDEFUL;
-   questionG(cle, &bloc);
+     ///Question f : génération des clés
+     bloc = 0x0123456789ABCDEFUL;
+     questionF(cle);
 
+     ///Question G : chiffrement et déchiffrement complet
+     bloc = 0x0123456789ABCDEFUL;
+     questionG(cle, &bloc);
+   }
+   else
+   {///chiffrer ou déchiffrer le document demandé
+     if(argc != 3)
+     {///si le nombre d'arguments est incorrect
+       printf("%d Avec -c ou -d il faut entrer le nom du fichier dans lequel lire ou écrire.", argc);
+       exit(1);
+     }
+     else
+     {///si on a un argument correspondant à un fichier
+      char * fichier = argv[2];
+      printf("%s\n ", fichier);
+     }
 
-
+   }
    return 1;
  }
