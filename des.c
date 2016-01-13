@@ -269,17 +269,17 @@ void key_generation( uint64_t * key, uint64_t * keys_tab )
 	 permute(&key_round, PC1, 56);
 	 int i;
 	 for(i = 1; i <= 16; i++)
-	 { 
+	 {
 		//printf("entrée : %lx\n", key_round);
 		uint64_t key_temp = key_round;
-		
+
 		//sépare en deux blocs de 28
 		uint64_t * split = malloc( sizeof(uint64_t) * 2 ); //tableau pour les deux blocs
 		decoupage(&key_temp, split, 2, 56);
-		
+
 		// si le tour est à 1, 2, 9 ou 16, le shift est de 1, sinon 2
 		int nb_shift = CYCLE[i - 1];
-			
+
 		// on applique le shift au deux blocs
 		uint64_t bloc_a = split[1];
 		//printf("bloc a : %lx\n", bloc_a);
@@ -289,22 +289,22 @@ void key_generation( uint64_t * key, uint64_t * keys_tab )
 		//printf("bloc b : %lx\n", bloc_b);
 		circular_shift(&bloc_b, nb_shift, 28);
 		//printf("shift : %lx\n", bloc_b);
-		
+
 		// on concatène les deux blocs
 		key_temp = (bloc_a << 28) + bloc_b;
 		//printf("concat : %lx\n", key_temp);
-		
+
 		// on stocke le résultat pour le prochain tour de boucle
 		key_round = key_temp;
 		//printf("round : %lx\n", key_round);
-		
+
 		// on applique PC2 sur la clé
 		permute(&key_temp, PC2, 48);
 		//printf("%d, : %lx\n\n", i, key_temp);
-		
+
 		// on libère la tableau split
 		free(split);
-		
+
 		// on l'ajoute au tableau de clés générées
 		keys_tab[i-1] = key_temp;
 	 }
@@ -475,9 +475,10 @@ void questionE(uint64_t * mot)
   free(moities);
 
   ///rondes
-  int i;
+  int i, k;
   uint64_t temp;
   uint64_t cle = 0x123456789abcdefUL;
+  uint64_t res;
 
   for( i = 0; i < 16; i++ )
   {
@@ -493,27 +494,29 @@ void questionE(uint64_t * mot)
     printf(" Après clé : %lx\n", droite);
 
     ///la clé donnée est sur plus de 48 bits : on doit donc couper le résultat du mélange pour qu'il soit sur 48 bits
-    int caca;
-    for(caca=48; caca < 64; caca++)
+    for(k=48; k < 64; k++)
     {
-         setBit(&droite, caca, 0);
+         setBit(&droite, k, 0);
     }
     printf(" Avant substitution : %lx\n", droite);
 
     ///substitution : ok
     substitution(&droite);
 
-
     ///permutation P
     printf(" Avant p box : %lx\n", droite);
-    //  permute(&droite, P, 32);
-    uint64_t res = 0;
-    int k;
+    res = 0;
     for (k = 0; k < 32; k++)
     {
-      int bit =  getBit(droite , P[k] - 1);
-      //printf("  %d : bit à l'index : : %d\n", k, bit);
-      setBit(&res, 32 - k - 1, bit);
+      int index =  P[k] - 1;
+
+      uint64_t caca = droite >> (32-index-1);
+      size_t bit = 0;
+      if( caca % 2 == 1)
+      {
+        bit = 1;
+      }
+      res = ( res << 1 ) + bit;
     }
     droite = res;
     printf(" Après p box, avant mélange : %lx\n", droite);
@@ -525,7 +528,34 @@ void questionE(uint64_t * mot)
     printf(" Après mélange des blocs : %lx\n", droite);
     ///inversion pour la prochaine itération
     gauche = temp;/// gI+1 = dI
+
+
+    *mot = ( gauche << 32 ) ^ droite;
+    printf(" Bloc en fin de tour : %lx\n", *mot);
+  }
+
+
+  ///permutation finale
+  /*res = 0;
+  for (k = 0; k < 64; k++)
+  {
+    int index =  PI_INV[k] - 1;
+
+    uint64_t caca = *mot >> (63 - index);
+    size_t bit = 0;
+    if( caca % 2 == 1)
+    {
+      bit = 1;
+    }
+    printf("bit : %d\n", bit);
+    res = ( res << 1 ) + bit;
+  }
+  *mot = res;*/
+  permute(mot, PI_INV, 64);
+  printf("\n RESULTAT FINAL E : %lx\n", *mot);
 }
+
+
 
  int main(int argc, char *argv[])
  {
@@ -601,31 +631,18 @@ void questionE(uint64_t * mot)
    uint64_t res =0;
    for (k = 0; k < 32; k++)
    {
-     printf("\n%d\n", k);
      int index =  P[k] - 1;
-     size_t bit =  getBit(bloc , 32 - index);
 
-     uint64_t caca = bloc >> (32-index);
-     bit=0;
-     printf("caca int : %d", caca);
+     uint64_t caca = bloc >> (32-index-1);
+     size_t bit = 0;
      if( caca % 2 == 1)
      {
        bit = 1;
      }
      res = ( res << 1 ) + bit;
-
-     printf(" caca : %lx\n",caca );
-     printf(" res : %lx\n",res );
-
-     //printf(" bit à l'index %d : %d\n", P[k], getBit(bloc , P[k] - 1));
-     printf(" bit : %d\n", bit);
-     //setBit(&res, 32-k-1, bit);
    }
-   //printf("après boucle  bloc %lx;\n", bloc );
-   permute(&bloc, P, 32);
    printf("attendu %lx\n", 0x13F3812 );
    printf("obtenu res %lx\n", res );
-   printf("obtenu bloc %lx\n", bloc );
 
 
    return 1;
