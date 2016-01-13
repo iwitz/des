@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
- int test[4] = {3,1,4,2};
 #define ROUNDS 16;
 
 //La permutation initiale et son inverse
@@ -221,15 +220,15 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
  }
 
  /*
-  * shift cyclique (les "shift_size" premiers bits sont placés au début du mot de taille "total_size")
+  * shift cyclique (les "decalage" premiers bits sont placés au début du mot de taille "tailleMot")
   */
- void circular_shift (uint64_t * mot, int shift_size, int total_size)
+ void decalageCirculaire( uint64_t * mot, int decalage, int tailleMot )
  {
- 	//masque de shift_size
- 	uint64_t mask = 0;
+ 	//masque de decalage
+ 	uint64_t masque = 0;
  	int i;
- 	for (i = 0; i < shift_size; i++)
- 		mask = (mask << 1) + 1;
+ 	for (i = 0; i < decalage; i++)
+ 		masque = (masque << 1) + 1;
 
  	/* on applique le masque pour récupérer la partie à shift
  	 * on décale vers la gauche
@@ -237,13 +236,11 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
  	 */
  	 uint64_t temp;
  	 uint64_t res = *mot;
- 	 for (i = 0; i < shift_size; i++)
+ 	 for (i = 0; i < decalage; i++)
  	 {
- 		 //printf("	i : %lx\n", res);
- 		  temp = getBit(res, total_size - 1);
+ 		  temp = getBit(res, tailleMot - 1);
  		  res = (res << (1)) + temp;
- 		  setBit(&res, total_size, 0);
- 		 // printf("	o : %lx, %lx\n", temp, res);
+ 		  setBit(&res, tailleMot, 0);
  	 }
  	*mot = res;
  }
@@ -256,53 +253,44 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
    * on permute la concaténation avec PC2 pour avoir une clé de 48 bits
    * on l'ajoute au tableau des clés générées
    */
- void key_generation( uint64_t key, uint64_t * keys_tab )
+ void generation_cles( uint64_t key, uint64_t * keys_tab )
   {
- 	 uint64_t key_round = key; //la clé utilisée pour le tour de boucle
- 	 permute(&key_round, PC1, 56, 64);
+ 	 uint64_t cle_courante = key; //la clé utilisée pour le tour de boucle
+ 	 permute(&cle_courante, PC1, 56, 64);
 
  	 int i;
 
  	 for(i = 1; i <= 16; i++)
  	 {
- 		//printf("entrée : %lx\n", key_round);
- 		uint64_t key_temp = key_round;
+ 		uint64_t temp = cle_courante;
 
  		//sépare en deux blocs de 28
- 		uint64_t * split = malloc( sizeof(uint64_t) * 2 ); //tableau pour les deux blocs
- 		decoupage(&key_temp, split, 2, 56);
+ 		uint64_t * moities = malloc( sizeof(uint64_t) * 2 ); //tableau pour les deux blocs
+ 		decoupage(&temp, moities, 2, 56);
 
  		// si le tour est à 1, 2, 9 ou 16, le shift est de 1, sinon 2
- 		int nb_shift = CYCLE[i - 1];
- 		//printf("cycle : %d\n", nb_shift);
+ 		int decalage = CYCLE[i - 1];
 
  		// on applique le shift au deux blocs
- 		uint64_t bloc_a = split[1];
- 		//printf("bloc a : %lx\n", bloc_a);
- 		circular_shift(&bloc_a, nb_shift, 28);
- 		//printf("shift : %lx\n", bloc_a);
- 		uint64_t bloc_b = split[0];
- 		//printf("bloc b : %lx\n", bloc_b);
- 		circular_shift(&bloc_b, nb_shift, 28);
- 		//printf("shift : %lx\n", bloc_b);
+ 		uint64_t bloc_a = moities[1];
+ 		decalageCirculaire(&bloc_a, decalage, 28);
+ 		uint64_t bloc_b = moities[0];
+ 		decalageCirculaire(&bloc_b, decalage, 28);
 
  		// on concatène les deux blocs
- 		key_temp = (bloc_a << 28) + bloc_b;
- 		//printf("concat : %lx\n", key_temp);
+ 		temp = (bloc_a << 28) + bloc_b;
 
  		// on stocke le résultat pour le prochain tour de boucle
- 		key_round = key_temp;
- 		//printf("round : %lx\n", key_round);
+ 		cle_courante = temp;
 
  		// on applique PC2 sur la clé
- 		permute(&key_temp, PC2, 48, 56);
- 		//printf("%d : %lx\n\n", i, key_temp);
+ 		permute(&temp, PC2, 48, 56);
 
- 		// on libère la tableau split
- 		free(split);
+ 		// on libère la tableau moities
+ 		free(moities);
 
  		// on l'ajoute au tableau de clés générées
- 		keys_tab[i-1] = key_temp;
+ 		keys_tab[i-1] = temp;
  	 }
   }
 
@@ -332,6 +320,87 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
   	 free(blocs);
   	 *mot = res;
    }
+
+   /* expansion
+    * transforme un bloc de 32 bits en bloc de 48 bits
+    */
+   void expansion(uint64_t * mot)
+   {
+     permute(mot, EXP, 48, 32);
+   }
+
+
+
+   /** des complet
+   *  avec c la direction de chiffrement ( c pour chiffrer, d pour déchiffrer)
+   */
+   void des( uint64_t * cles, uint64_t * mot, char direction)
+   {
+     ///permutation initiale
+     permute(mot, PI, 64, 64);
+
+     ///découpage en 2
+     uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
+     decoupage(mot, moities, 2, 64);
+     uint64_t droite =  moities[0];
+     uint64_t gauche = moities[1];
+     free(moities);
+
+     ///rondes
+     int i, k;
+     uint64_t temp, cle;
+
+     for( i = 0; i < 16; i++ )
+     {
+       ///stockage de la valeur de dI
+       temp = droite ;
+
+       ///expansion
+       expansion(&droite);
+
+       ///mélange
+       if(direction=='c')
+       {///si on chiffre
+         cle = cles[ i ];
+       }
+       else
+       {///si on déchiffre
+         cle = cles[ 15 - i ];
+       }
+       droite = droite ^ cle;
+
+       ///la clé donnée est sur plus de 48 bits : on doit donc couper le résultat du mélange pour qu'il soit sur 48 bits
+       for(k=48; k < 64; k++)
+       {
+          setBit(&droite, k, 0);
+       }
+
+       ///substitution : ok
+       substitution(&droite);
+
+       ///permutation P
+       permute(&droite, P, 32, 32);
+
+       //mélange des blocs : OK
+       droite = droite ^ gauche;
+
+       ///inversion pour la prochaine itération
+       gauche = temp;/// gI+1 = dI
+
+       ///recollage des blocs
+       *mot = ( gauche << 32 ) ^ droite;
+     }
+     //échange
+     moities = malloc( sizeof(uint64_t) * 2 );
+     decoupage(mot, moities, 2, 64);
+     droite =  moities[0];
+     gauche = moities[1];
+     *mot = ( droite << 32 ) ^ gauche;
+     free(moities);
+     ///permutation finale
+     permute(mot, PI_INV, 64, 64);
+   }
+
 
  /*
   * Chiffrement pour la question A
@@ -401,16 +470,16 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
   */
  void questionB(uint64_t mot)
  {
-   printf("\nChiffrement question B : \n");
-   printf("Début : %lx \n", mot);
+   printf("\nChiffrement question b : \n");
+   printf("Paramètre : %lx \n", mot);
 
    permute(&mot, PI, 64, 64);
    chiffrementA(&mot);
    permute(&mot, PI_INV, 64, 64);
    printf("Fin : %lx \n", mot);
 
-   printf("\nDéchiffrement question B : \n");
-   printf("Début : %lx \n", mot);
+   printf("\nDéchiffrement question b : \n");
+   printf("Paramètre : %lx \n", mot);
    permute(&mot, PI, 64, 64);
    dechiffrementA(&mot);
    permute(&mot, PI_INV, 64, 64);
@@ -420,9 +489,11 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
  /* expansion :
   *  permute un bloc de 32 bits pour en faire un bloc de 48 bits
   */
- void questioncCExpansion(uint64_t * mot)
+ void questionC(uint64_t * mot)
  {
-   permute(mot, EXP, 48, 32);
+   printf("\nQuestion c\nParamètre : %lx\n", *mot);
+   expansion(mot);
+   printf("Résultat : %lx\n", *mot);
  }
 
  /* question D
@@ -431,244 +502,106 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
   */
  void questionD(uint64_t * mot)
  {
+   printf("\nQuestion d\nParamètre : %lx\n", *mot);
    substitution(mot);
+   printf("Résultat : %lx\n", *mot);
  }
 
-
 /*  question e
- *
+ *  fonction f appliquant expansion, mélange avec clé constante, k = 0x123456789abcdef
+ *  la substitution et la permutation finale
  */
 void questionE(uint64_t * mot)
 {
-  ///permutation initiale
-  permute(mot, PI, 64, 64);
-
-  ///découpage en 2
-  uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
-  decoupage(mot, moities, 2, 64);
-  uint64_t droite =  moities[0];
-  uint64_t gauche = moities[1];
-  free(moities);
-
-  ///rondes
-  int i, k;
-  uint64_t temp;
-  uint64_t cle = 0x123456789abcdefUL;
-
-  for( i = 0; i < 16; i++ )
-  {
-    ///stockage de la valeur de dI
-    temp = droite ;
-
-    ///expansion
-    questioncCExpansion(&droite);
-
-    ///mélange
-    droite = droite ^ cle;
-
-    ///la clé donnée est sur plus de 48 bits : on doit donc couper le résultat du mélange pour qu'il soit sur 48 bits
-    for(k=48; k < 64; k++)
-    {
-         setBit(&droite, k, 0);
-    }
-
-    ///substitution : ok
-    substitution(&droite);
-
-    ///permutation P
-    permute(&droite, P, 32, 32);
-
-    //mélange des blocs : OK
-    droite = droite ^ gauche;
-
-    ///inversion pour la prochaine itération
-    gauche = temp;/// gI+1 = dI
-
-
-    *mot = ( gauche << 32 ) ^ droite;
+  ///génération du tableau contenant la clé
+  uint64_t * cles = malloc( sizeof(uint64_t) * 16 );
+  int i;
+  for( i = 0; i < 16; i++)
+  {///remplissage du tableau de clés avec la clé fixe
+    cles[i] = 0x123456789abcdefUL;
   }
-  //échange
-  moities = malloc( sizeof(uint64_t) * 2 );
-  decoupage(mot, moities, 2, 64);
-  droite =  moities[0];
-  gauche = moities[1];
-  *mot = ( droite << 32 ) ^ gauche;
-  free(moities);
-  ///permutation finale
-  permute(mot, PI_INV, 64, 64);
+  printf("\nQuestion e \n");
+  printf("Paramètre : %lx\n", *mot);
+  des( cles, mot, 'c' );
+  printf("Bloc chiffré : %lx\n", *mot);
+  des( cles, mot, 'd' );
+  printf("Bloc déchiffré : %lx\n", *mot);
+  free(cles);
 }
-
-
 
   /** question f:
    *  fonction de génération des 16 clésà partir de la clé unique K
    */
-  void questionF()
+  void questionF(uint64_t cle)
   {
+    printf("\nQuestion f \n");
+    uint64_t * cles = malloc(sizeof(uint64_t) * 16);
+    generation_cles( cle, cles );
 
+    int k;
+    for (k = 0; k < 16; k ++)
+    {
+       printf("clé %d : %lx\n", k, cles[k]);
+    }
+
+    free(cles);
   }
 
   /** question g :
    *  fonction de chiffrement et de déchiffrement complète appliquant des sur un bloc
    */
-  void questionG( uint64_t cle, uint64_t * mot, char direction)
+  void questionG( uint64_t cle, uint64_t * mot)
   {
+    printf("\nQuestion g \n");
     ///diversification de la clé
     uint64_t * cles = malloc(sizeof(uint64_t) * 16);
-    key_generation(cle, cles);
+    generation_cles(cle, cles);
 
-    ///permutation initiale
-    permute(mot, PI, 64, 64);
-
-    ///découpage en 2
-    uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
-    decoupage(mot, moities, 2, 64);
-    uint64_t droite =  moities[0];
-    uint64_t gauche = moities[1];
-    free(moities);
-
-    ///rondes
-    int i, k;
-    uint64_t temp;
-
-    for( i = 0; i < 16; i++ )
-    {
-      ///stockage de la valeur de dI
-      temp = droite ;
-
-      ///expansion
-      questioncCExpansion(&droite);
-
-      ///mélange
-      if(direction=='c')
-      {///si on chiffre
-        cle = cles[ i ];
-      }
-      else
-      {///si on déchiffre
-        cle = cles[ 15 - i ];
-      }
-      droite = droite ^ cle;
-
-      ///la clé donnée est sur plus de 48 bits : on doit donc couper le résultat du mélange pour qu'il soit sur 48 bits
-      for(k=48; k < 64; k++)
-      {
-           setBit(&droite, k, 0);
-      }
-
-      ///substitution : ok
-      substitution(&droite);
-
-      ///permutation P
-      permute(&droite, P, 32, 32);
-
-
-      //mélange des blocs : OK
-      droite = droite ^ gauche;
-
-      ///inversion pour la prochaine itération
-      gauche = temp;/// gI+1 = dI
-
-
-      *mot = ( gauche << 32 ) ^ droite;
-    }
-    //échange
-    moities = malloc( sizeof(uint64_t) * 2 );
-    decoupage(mot, moities, 2, 64);
-    droite =  moities[0];
-    gauche = moities[1];
-    *mot = ( droite << 32 ) ^ gauche;
-    free(moities);
-    ///permutation finale
-    permute(mot, PI_INV, 64, 64);
+    printf("Paramètre : %lx\n", *mot);
+    des(cles, mot, 'c');
+    printf("Chiffrement : %lx\n", *mot);
+    des(cles, mot, 'd');
+    printf("Déchiffrement : %lx\n", *mot);
 
     free(cles);
   }
 
 
-
  int main(int argc, char *argv[])
  {
-   //uint64_t long cle = 0x0123456789ABCDEF;
    uint64_t bloc = 0x0123456789ABCDEFUL;
+   uint64_t cle = 0x0123456789ABCDEFUL;
 
-   // après permutation initiale bloc doit valoir  0x cc00ccfff0aaf0aa : vrai
-   permute(&bloc, PI, 64, 64);
-   printf("\nPermutation intiale :  %lx\n", bloc);
-
-   ///test de l'inversion : elle fonctionne
-   inversion(&bloc, 32);
-   printf("\nInversion : %lx\n", bloc);
-
-   ///test de la fonction f question a : fonctionne
-   uint64_t i = 1;
-   printf("\nFonction f question A : %lu\n", fA(i) );
-
-   ///test de la fonction de découpage : au poil
-   printf("\nTest de découpage en 4 : \n");
-   bloc = 0x0123456789ABCDEFUL;
-   int k;
-   uint64_t * moitie = malloc( sizeof(uint64_t) * 4 );
-   decoupage(&bloc, moitie, 4, 64);
-   for( k = 0; k < 4; k++)
-   {
-     printf("   RESULTAT : %d : %lx\n", k, moitie[k]);
-   }
-   free(moitie);
-
-   ///test du résultat de la question a  : OK
+   ///Question a : chiffrement sans Pi et PI_INV
    bloc = 0x0123456789ABCDEFUL;
    questionA(bloc);
 
-   ///test du résultat question b : OK
+   ///Question b : chiffrement et déchiffrement avec PI et PI_INV
    bloc = 0x0123456789ABCDEFUL;
    questionB(bloc);
 
-   ///test de l'expansion : au poil
-   bloc = 0b11101111111111111111111111111111;
-   printf("\nQuestion C : expansion de %lx\n", bloc);
-   questioncCExpansion(&bloc);
-   printf("%lx\n", bloc);
+   ///Question c : expansion
+   bloc = 0xefffffff;
+   questionC(&bloc);
+   // valeur attendue : 0xf5ffffffffff
 
-   ///test de la question D : bah si ça marche
-	 bloc = 0b001100110011010101101010000111111000000000111111;
-	 printf("\nQuestion D : substitution de %lx\n", bloc);
-	 questionD(&bloc);
-	 printf("%lx\n", bloc);/// valeur attendue : 0xB65BC14B
+   ///Question d : substitution
+   bloc = 0b001100110011010101101010000111111000000000111111;
+   questionD(&bloc);
+   // valeur attendue : 0xB65BC14B
 
-   ///test question E : au oilp
-   printf("\nQuestion E\n");
+   ///Question e : chiffrement et déchiffrement avec fonction f complète
    bloc = 0x0123456789ABCDEFUL;
    questionE(&bloc);
-   printf("Résultat obtenu : %lx\n", bloc);
-   printf("Résultat attendu : %lx\n" , 0x6dd58e830a84036UL );
 
-     ///génération de clés : au poil
+   ///Question f : génération des clés
    bloc = 0x0123456789ABCDEFUL;
-   printf("\nQuestion F : génération des clés de %lx\n", bloc);
-   uint64_t * keys= malloc(sizeof(uint64_t) * 16);
-   key_generation(bloc, keys);
-   for (k = 0; k < 16; k ++)
-   {
-      printf("clé %d : %lx\n", k, keys[k]);
-   }
+   questionF(cle);
 
-   ///test question E : au oilp
-   printf("\nQuestion G encryption\n");
+   ///Question G : chiffrement et déchiffrement complet
    bloc = 0x0123456789ABCDEFUL;
-   printf("Paramètre : %lx\n", bloc);
-   questionG(0x123456789abcdef, &bloc, 'c');
-   printf("Résultat obtenu : %lx\n", bloc);
-   printf("Résultat attendu : %lx\n" , 0x56cc09e7cfdc4cef );
+   questionG(cle, &bloc);
 
-   printf("\nQuestion G décryptage\n");
-   bloc = 0x56cc09e7cfdc4cefUL;
-   printf("Paramètre : %lx\n", bloc);
-   questionG(0x123456789abcdef, &bloc, 'd');
-   printf("Résultat obtenu : %lx\n", bloc);
-   printf("Résultat attendu : %lx\n" , 0x0123456789ABCDEFUL );
-
-   free(keys);
 
 
    return 1;
