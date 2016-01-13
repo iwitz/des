@@ -466,7 +466,6 @@ void questionE(uint64_t * mot)
 
   ///permutation initiale
   permute(mot, PI, 64);
-  printf("%lx\n", *mot);
 
   ///découpage en 2
   uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
@@ -482,7 +481,7 @@ void questionE(uint64_t * mot)
 
   for( i = 0; i < 16; i++ )
   {
-    printf("gauche : %lx\n droite : %lx\n", gauche, droite);
+    printf("\n%d\n Bloc de gauche : %lx\n Bloc de droite : %lx\n", i, gauche, droite);
     ///stockage de la valeur de dI
     temp = droite ;
 
@@ -490,29 +489,42 @@ void questionE(uint64_t * mot)
     questioncCExpansion(&droite);
 
     ///mélange
-    cle = cles[i];
-    printf("clé courante : %lx\n", cle);
     droite = droite ^ cle;
+    printf(" Après clé : %lx\n", droite);
 
-    ///substitution
+    ///la clé donnée est sur plus de 48 bits : on doit donc couper le résultat du mélange pour qu'il soit sur 48 bits
+    int caca;
+    for(caca=48; caca < 64; caca++)
+    {
+         setBit(&droite, caca, 0);
+    }
+    printf(" Avant substitution : %lx\n", droite);
+
+    ///substitution : ok
     substitution(&droite);
 
-    ///permutation P
-    permute(&droite, P, 32);
 
-    ///mélange des blocs
+    ///permutation P
+    printf(" Avant p box : %lx\n", droite);
+    //  permute(&droite, P, 32);
+    uint64_t res = 0;
+    int k;
+    for (k = 0; k < 32; k++)
+    {
+      int bit =  getBit(droite , P[k] - 1);
+      //printf("  %d : bit à l'index : : %d\n", k, bit);
+      setBit(&res, 32 - k - 1, bit);
+    }
+    droite = res;
+    printf(" Après p box, avant mélange : %lx\n", droite);
+
+
+    //mélange des blocs : OK
     droite = droite ^ gauche;
 
+    printf(" Après mélange des blocs : %lx\n", droite);
     ///inversion pour la prochaine itération
     gauche = temp;/// gI+1 = dI
-  }
-  ///recollage des blocs
-  printf("\n gauche : %lx \n droite : %lx \n", gauche, droite);
-  *mot = (gauche << 32) ^ droite;
-  printf("res : %lx\n", *mot);
-
-  ///permutation finale
-  permute(mot, PI_INV, 64);
 }
 
  int main(int argc, char *argv[])
@@ -569,9 +581,11 @@ void questionE(uint64_t * mot)
 	 printf("\nGénération des clés de %lx\n", bloc);
 	 uint64_t * keys= malloc(sizeof(uint64_t) * 16);
 	 key_generation(&bloc, keys);
-	 int x;
-	 for (x = 0; x < 16; x ++)
-	 printf("clé %d : %lx\n", x, keys[x]);
+	 for (k = 0; k < 16; k ++)
+   {
+     printf("clé %d : %lx\n", k, keys[k]);
+   }
+
  	 free(keys);
 
    ///test question E : marche pas
@@ -579,5 +593,40 @@ void questionE(uint64_t * mot)
    bloc = 0x0123456789ABCDEFUL;
    questionE(&bloc);
    printf("Résultat attendu : %lx\n" , 0x6dd58e830a84036UL );
- 	 return 1;
+
+   printf("\ntest permutation pbox ;\n");
+   bloc = 0x1c44c343;
+   printf("bloc : %lx\n", bloc);
+
+   uint64_t res =0;
+   for (k = 0; k < 32; k++)
+   {
+     printf("\n%d\n", k);
+     int index =  P[k] - 1;
+     size_t bit =  getBit(bloc , 32 - index);
+
+     uint64_t caca = bloc >> (32-index);
+     bit=0;
+     printf("caca int : %d", caca);
+     if( caca % 2 == 1)
+     {
+       bit = 1;
+     }
+     res = ( res << 1 ) + bit;
+
+     printf(" caca : %lx\n",caca );
+     printf(" res : %lx\n",res );
+
+     //printf(" bit à l'index %d : %d\n", P[k], getBit(bloc , P[k] - 1));
+     printf(" bit : %d\n", bit);
+     //setBit(&res, 32-k-1, bit);
+   }
+   //printf("après boucle  bloc %lx;\n", bloc );
+   permute(&bloc, P, 32);
+   printf("attendu %lx\n", 0x13F3812 );
+   printf("obtenu res %lx\n", res );
+   printf("obtenu bloc %lx\n", bloc );
+
+
+   return 1;
  }
