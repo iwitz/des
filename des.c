@@ -136,55 +136,58 @@ uint64_t* tableauEntree;
 int tailleTableauEntree = 0;
 
 // obtenir le num de fichier passé en paramètre
-int ouvrirFichier(char * fichier) {
-	return open(fichier, O_RDONLY);
+FILE* ouvrirFichier(char * fichier) {
+	return fopen(fichier, "rb+");
 }
 
-void lireFichier(int fichier) {
- char c;
- int no_eof = 0;
- // On se positionne en début des fois que le fichier aie déjà été lu en partie
- lseek(fichier, 0, SEEK_SET);
+void lireFichier(FILE* fichier) {
+	char c;
+	 
+	 // pointeur au début du fichier
+	rewind(fichier);
 
- do {
-   no_eof = read(fichier,&c,1);
-   if (no_eof != 0){
-	   tailleTableauEntree++;
-   } 
-
- } while (no_eof != 0);
- 
+	while( ( c =  fgetc(fichier)) != EOF)
+		tailleTableauEntree++;
+		
+	if (feof(fichier))
+	{
+	  // hit end of file
+	  printf("Fichier lu\n");
+	}
+	else
+	{
+	  // some other error interrupted the read
+	  printf("Erreur dans le fichier\n");
+	}
 
 	unsigned char* res = malloc(tailleTableauEntree + 2);
-	
-	 lseek(fichier, 0, SEEK_SET);
 
-int i = 0;
- do {
-   no_eof = read(fichier,&c,1);
-   if (no_eof != 0){
-	   res[i] = c;
-	   i++;
-   } 
- } while (no_eof != 0);
+	rewind(fichier);
+
+	int i = 0;
+	while( ( c =  fgetc(fichier)) != EOF )
+	{
+		res[i] = c;
+		i++;
+	}
 
 
-int nbBlocs =(tailleTableauEntree/8) + 1;
+	int nbBlocs =(tailleTableauEntree/8) + 1;
 	tableauEntree = malloc(sizeof(uint64_t) * nbBlocs);
 
-int j;
-int index;
-for(i = 0; i < nbBlocs; i++)
-{
-	for(j = 0; j < 4; j++)
+	int j;
+	int index;
+	for(i = 0; i < nbBlocs; i++)
 	{
-		index = j + (i * 4);
-		tableauEntree[i] = (tableauEntree[i] << 8) + res[index];
+		for(j = 0; j < 4; j++)
+		{
+			index = j + (i * 4);
+			tableauEntree[i] = (tableauEntree[i] << 8) + res[index];
+		}
 	}
-}
 
-close(fichier);
- 
+	fclose(fichier);
+	 
 }
 
 void ecrireFichier (uint64_t* mots, int nbMots)
@@ -746,43 +749,49 @@ void inversionMot(uint64_t* mots, int nbMots)
      }
      else
      {///si on a un argument correspondant à un fichier
-      int numFichier;
-      if ((numFichier = ouvrirFichier(argv[2])) < 0) exit(-2);
       
-      /// lecture du fichier
-      lireFichier(numFichier);
       
-      /// génération des clés
-      uint64_t cle = 0x0123456789ABCDEFUL;
-      uint64_t * cles = malloc(sizeof(uint64_t) * 16);
-	  generation_cles(cle, cles);
-	  
-	  /// déchiffrement
-	  int nbBlocs = tailleTableauEntree/8 + 1;
-	  uint64_t * resultat = malloc(sizeof(uint64_t) * (nbBlocs / 2));
-	  int i;
-	  uint64_t mot;
-	  
-	  // concaténation de deux blocs deux à deux, dans le tableau resultat
-	  for(i = 0; i < nbBlocs; i = i+2)
-	  {
-		  mot = (tableauEntree[i] << 32) + tableauEntree[i+1];
-		  des(cles, &mot, 'd');
-		  resultat[i/2] = mot;
+      if(direction == 'd')
+      {
+		  FILE* fichier;
+		  
+		  if ((fichier = ouvrirFichier(argv[2])) < 0) exit(-2);
+		  
+		  /// lecture du fichier
+		  lireFichier(fichier);
+		  
+		  /// génération des clés
+		  uint64_t cle = 0x0123456789ABCDEFUL;
+		  uint64_t * cles = malloc(sizeof(uint64_t) * 16);
+		  generation_cles(cle, cles);
+		  
+		  /// déchiffrement
+		  int nbBlocs = tailleTableauEntree/8 + 1;
+		  uint64_t * resultat = malloc(sizeof(uint64_t) * (nbBlocs / 2));
+		  int i;
+		  uint64_t mot;
+		  
+		  // concaténation de deux blocs deux à deux, dans le tableau resultat
+		  for(i = 0; i < nbBlocs; i = i+2)
+		  {
+			  mot = (tableauEntree[i] << 32) + tableauEntree[i+1];
+			  des(cles, &mot, 'd');
+			  resultat[i/2] = mot;
+		  }
+		  
+		  for(i = 0; i < nbBlocs/2; i++)
+			printf("%lx\n", resultat[i]);
+		  
+		  // inversion du tableau
+		  inversionMot(resultat, nbBlocs/2);
+		  
+		  /// écriture dans le fichier
+		  ecrireFichier(resultat, nbBlocs/2);
+		  
+		  
+		  free(tableauEntree);
+		  free(cles);
 	  }
-	  
-	  for(i = 0; i < nbBlocs/2; i++)
-		printf("%lx\n", resultat[i]);
-	  
-	  // inversion du tableau
-	  inversionMot(resultat, nbBlocs/2);
-	  
-	  /// écriture dans le fichier
-	  ecrireFichier(resultat, nbBlocs/2);
-	  
-	  
-	  free(tableauEntree);
-	  free(cles);
 	}
    }
    return 1;
