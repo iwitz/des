@@ -189,7 +189,7 @@ close(fichier);
 
 void ecrireFichier (uint64_t* mots, int nbMots)
 {
-	int sortie = open("sortie.txt", O_WRONLY);
+	int sortie = open("sortie.txt", O_WRONLY|O_CREAT,0640);
 
 		int i;
 		for (i = 0; i < nbMots; i++)
@@ -641,6 +641,44 @@ void questionE(uint64_t * mot)
     free(cles);
   }
 
+/*
+ * fonction qui va inverser chaque mot de 64 bits d'un tableau de nbMots de la manière suivante :
+ * (b0b1...b30b31)(b32b33...b62b63) = (b30b31...b0b1)(b62b63...b32b33)
+ */
+void inversionMot(uint64_t* mots, int nbMots)
+{
+	uint64_t* temp = malloc(sizeof(uint64_t) * 2);
+
+	uint64_t mask = 0xFF;
+	uint64_t buff_a = 0;
+	uint64_t bloc_a = 0;
+	uint64_t buff_b = 0;
+	uint64_t bloc_b = 0;
+	uint64_t res = 0;
+	int i;
+	int j;
+	
+	for(j = 0; j < nbMots; j++)
+	{
+		decoupage(&mots[j], temp, 2, 64);
+		bloc_a = 0;
+		bloc_b = 0;
+		for(i = 0; i < 32; i = i + 8)
+		{
+			
+			buff_a = (temp[0] & (mask << i)) >> i;
+			bloc_a += (buff_a << (24 - i));
+			
+			buff_b = (temp[1] & (mask << i)) >> i;
+			bloc_b += (buff_b << (24-i));
+			
+			res = (bloc_a << 32) + bloc_b; 
+		}		
+		mots[j] = res;
+	}
+	free(temp);
+}
+
 
  int main(int argc, char * argv[])
  {
@@ -711,20 +749,21 @@ void questionE(uint64_t * mot)
       int numFichier;
       if ((numFichier = ouvrirFichier(argv[2])) < 0) exit(-2);
       
+      /// lecture du fichier
       lireFichier(numFichier);
       
+      /// génération des clés
       uint64_t cle = 0x0123456789ABCDEFUL;
       uint64_t * cles = malloc(sizeof(uint64_t) * 16);
 	  generation_cles(cle, cles);
 	  
+	  /// déchiffrement
 	  int nbBlocs = tailleTableauEntree/8 + 1;
 	  uint64_t * resultat = malloc(sizeof(uint64_t) * (nbBlocs / 2));
-	  
-	  
-	  // déchiffrement
 	  int i;
-	  
 	  uint64_t mot;
+	  
+	  // concaténation de deux blocs deux à deux, dans le tableau resultat
 	  for(i = 0; i < nbBlocs; i = i+2)
 	  {
 		  mot = (tableauEntree[i] << 32) + tableauEntree[i+1];
@@ -734,8 +773,13 @@ void questionE(uint64_t * mot)
 	  
 	  for(i = 0; i < nbBlocs/2; i++)
 		printf("%lx\n", resultat[i]);
-		
+	  
+	  // inversion du tableau
+	  inversionMot(resultat, nbBlocs/2);
+	  
+	  /// écriture dans le fichier
 	  ecrireFichier(resultat, nbBlocs/2);
+	  
 	  
 	  free(tableauEntree);
 	  free(cles);
