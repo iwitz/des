@@ -724,9 +724,6 @@ void questionE(uint64_t * mot)
 	  // déchiffrement
 	  int i;
 	  
-	  for(i = 0; i  < nbBlocs; i++)
-		printf("%lx\n", tableauEntree[i]);
-	  
 	  uint64_t mot;
 	  for(i = 0; i < nbBlocs; i = i+2)
 	  {
@@ -736,6 +733,7 @@ void questionE(uint64_t * mot)
 	  }
 	  
 	  for(i = 0; i < nbBlocs/2; i++)
+		printf("%lx\n", resultat[i]);
 		
 	  ecrireFichier(resultat, nbBlocs/2);
 	  
