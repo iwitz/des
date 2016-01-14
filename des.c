@@ -147,24 +147,28 @@ void lireFichier(FILE* fichier)
 	 // pointeur au début du fichier
 	rewind(fichier);
 
+	//parcours du fichier afin de compter le nombre de caractères du fichier
 	while( ( c =  fgetc(fichier)) != EOF)
 		tailleTableauEntree++;
 
 	if (feof(fichier))
 	{
-	  // hit end of file
+	  // fin du fichier
 	  printf("Fichier lu\n");
 	}
 	else
 	{
-	  // some other error interrupted the read
+	  // une erreur est survenue dans la lecture
 	  printf("Erreur dans le fichier\n");
 	}
 
+	// création dynamique du tableau du résultat
 	unsigned char* res = malloc(tailleTableauEntree + 2);
 
+	// placement du pointeur au début
 	rewind(fichier);
 
+	// association du tableau aux caractères du fichier
 	int i = 0;
 	while( ( c =  fgetc(fichier)) != EOF )
 	{
@@ -172,12 +176,13 @@ void lireFichier(FILE* fichier)
 		i++;
 	}
 
-
+	// blocs de 8
 	int nbBlocs =(tailleTableauEntree/8) + 1;
 	tableauEntree = malloc(sizeof(uint64_t) * nbBlocs);
 
 	int j;
 	int index;
+	// parcours des blocs pour les concaténer
 	for(i = 0; i < nbBlocs; i++)
 	{
 		for(j = 0; j < 4; j++)
@@ -776,6 +781,7 @@ void inversionMot(uint64_t* mots, int nbMots)
         {  printf("%lx\n", resultat[i]); }
 
         // inversion du tableau
+  
         inversionMot(resultat, nbBlocs/2);
 
         /// écriture dans le fichier
