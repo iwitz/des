@@ -769,9 +769,6 @@ void inversionMot(uint64_t* mots, int nbMots)
 
        if(direction == 'd')
       {///déchiffrement
-
-for(i = 0; i < tailleTableauEntree; i++)
-	printf("%lx\n", tableauEntree[i]);
 	
         // concaténation de deux blocs deux à deux, dans le tableau resultat
         for(i = 0; i < nbBlocs; i++)
@@ -781,15 +778,10 @@ for(i = 0; i < tailleTableauEntree; i++)
           resultat[i] = mot;
         }
 		
-        for(i = 0; i < nbBlocs; i++)
-        {  printf("%lx\n", resultat[i]); }
-printf("\n");
         // inversion du tableau
   
         inversionMot(resultat, nbBlocs);
 
-		for(i = 0; i < nbBlocs; i++)
-		{	printf("%lx\n", resultat[i]); }
         /// écriture dans le fichier
         ecrireFichier(resultat, nbBlocs);
 
@@ -805,8 +797,6 @@ printf("\n");
           resultat[i] = mot;
         }
 
-        for(i = 0; i < nbBlocs; i++)
-        {  printf("%lx\n", resultat[i]); }
 
         // inversion du tableau
         inversionMot(resultat, nbBlocs);
