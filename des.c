@@ -177,7 +177,8 @@ void lireFichier(FILE* fichier)
 	}
 
 	// blocs de 8
-	int nbBlocs =(tailleTableauEntree/8) + 1;
+	int nbBlocs =(tailleTableauEntree/8);
+	if (tailleTableauEntree % 2 == 1) { nbBlocs++; }
 	tableauEntree = malloc(sizeof(uint64_t) * nbBlocs);
 
 	int j;
@@ -185,9 +186,9 @@ void lireFichier(FILE* fichier)
 	// parcours des blocs pour les concaténer
 	for(i = 0; i < nbBlocs; i++)
 	{
-		for(j = 0; j < 4; j++)
+		for(j = 0; j < 8; j++)
 		{
-			index = j + (i * 4);
+			index = j + (i * 8);
 			tableauEntree[i] = (tableauEntree[i] << 8) + res[index];
 		}
 	}
@@ -762,51 +763,56 @@ void inversionMot(uint64_t* mots, int nbMots)
        generation_cles(cle, cles);
 
        int nbBlocs = tailleTableauEntree/8 + 1;
-       uint64_t * resultat = malloc(sizeof(uint64_t) * (nbBlocs / 2));
+       uint64_t * resultat = malloc(sizeof(uint64_t) * (nbBlocs));
        int i;
        uint64_t mot;
 
        if(direction == 'd')
       {///déchiffrement
 
+for(i = 0; i < tailleTableauEntree; i++)
+	printf("%lx\n", tableauEntree[i]);
+	
         // concaténation de deux blocs deux à deux, dans le tableau resultat
-        for(i = 0; i < nbBlocs; i = i+2)
+        for(i = 0; i < nbBlocs; i++)
         {
-          mot = (tableauEntree[i] << 32) + tableauEntree[i+1];
-          des(cles, &mot, 'd');
-          resultat[i/2] = mot;
+          mot = tableauEntree[i];
+          des(cles, &mot, 'd'); // DES
+          resultat[i] = mot;
         }
-
-        for(i = 0; i < nbBlocs/2; i++)
+		
+        for(i = 0; i < nbBlocs; i++)
         {  printf("%lx\n", resultat[i]); }
-
+printf("\n");
         // inversion du tableau
   
-        inversionMot(resultat, nbBlocs/2);
+        inversionMot(resultat, nbBlocs);
 
+		for(i = 0; i < nbBlocs; i++)
+		{	printf("%lx\n", resultat[i]); }
         /// écriture dans le fichier
-        ecrireFichier(resultat, nbBlocs/2);
+        ecrireFichier(resultat, nbBlocs);
 
 
       }
       else
       { //chiffrement
         // concaténation de deux blocs deux à deux, dans le tableau resultat
-        for(i = 0; i < nbBlocs; i = i+2)
+        for(i = 0; i < nbBlocs; i++)
         {
-          mot = (tableauEntree[i] << 32) + tableauEntree[i+1];
+          mot = tableauEntree[i];
           des(cles, &mot, 'c');
-          resultat[i/2] = mot;
+          resultat[i] = mot;
         }
 
-        for(i = 0; i < nbBlocs/2; i++)
+        for(i = 0; i < nbBlocs; i++)
         {  printf("%lx\n", resultat[i]); }
 
         // inversion du tableau
-        inversionMot(resultat, nbBlocs/2);
+        inversionMot(resultat, nbBlocs);
 
         /// écriture dans le fichier
-        ecrireFichier(resultat, nbBlocs/2);
+        ecrireFichier(resultat, nbBlocs);
       }
       free(tableauEntree);
       free(cles);
