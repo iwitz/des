@@ -781,9 +781,7 @@ for(i = 0; i < tailleTableauEntree; i++)
           resultat[i] = mot;
         }
 		
-        for(i = 0; i < nbBlocs; i++)
-        {  printf("%lx\n", resultat[i]); }
-printf("\n");
+
         // inversion du tableau
   
         inversionMot(resultat, nbBlocs);
