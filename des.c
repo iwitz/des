@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 //La permutation initiale et son inverse
 int PI[64] = {58,50,42,34,26,18,10,2,
@@ -124,6 +125,81 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
  *  -on utilisera des uint64_t et des uint32_t selon le nombre de bits du bloc
  *  -uint64_t -> décimal : %lu
  *  -utin32_t -> hexa : %lx
+ */
+ 
+ /*
+  * Partie sur les fichiers
+  * 
+  */
+
+uint64_t* tableauEntree;
+int tailleTableauEntree = 0;
+
+// obtenir le num de fichier passé en paramètre
+int ouvrirFichier(char * fichier) {
+	return open(fichier, O_RDONLY);
+}
+
+void lireFichier(int fichier) {
+ char c;
+ int no_eof = 0;
+ // On se positionne en début des fois que le fichier aie déjà été lu en partie
+ lseek(fichier, 0, SEEK_SET);
+
+ do {
+   no_eof = read(fichier,&c,1);
+   if (no_eof != 0){
+	   tailleTableauEntree++;
+   } 
+
+ } while (no_eof != 0);
+ 
+
+	unsigned char* res = malloc(tailleTableauEntree + 2);
+	
+	 lseek(fichier, 0, SEEK_SET);
+
+int i = 0;
+ do {
+   no_eof = read(fichier,&c,1);
+   if (no_eof != 0){
+	   res[i] = c;
+	   i++;
+   } 
+ } while (no_eof != 0);
+
+
+int nbBlocs =(tailleTableauEntree/8) + 1;
+	tableauEntree = malloc(sizeof(uint64_t) * nbBlocs);
+
+int j;
+int index;
+for(i = 0; i < nbBlocs; i++)
+{
+	for(j = 0; j < 4; j++)
+	{
+		index = j + (i * 4);
+		tableauEntree[i] = (tableauEntree[i] << 8) + res[index];
+	}
+}
+
+close(fichier);
+ 
+}
+
+void ecrireFichier (uint64_t* mots, int nbMots)
+{
+	int sortie = open("sortie.txt", O_WRONLY);
+
+		int i;
+		for (i = 0; i < nbMots; i++)
+			write(sortie, &mots[i], sizeof(uint64_t));
+		close(sortie);
+	
+}
+
+/*
+ * DES
  */
 
  /* découpage
@@ -632,10 +708,40 @@ void questionE(uint64_t * mot)
      }
      else
      {///si on a un argument correspondant à un fichier
-      char * fichier = argv[2];
-      printf("%s\n ", fichier);
-     }
-
+      int numFichier;
+      if ((numFichier = ouvrirFichier(argv[2])) < 0) exit(-2);
+      
+      lireFichier(numFichier);
+      
+      uint64_t cle = 0x0123456789ABCDEFUL;
+      uint64_t * cles = malloc(sizeof(uint64_t) * 16);
+	  generation_cles(cle, cles);
+	  
+	  int nbBlocs = tailleTableauEntree/8 + 1;
+	  uint64_t * resultat = malloc(sizeof(uint64_t) * (nbBlocs / 2));
+	  
+	  
+	  // déchiffrement
+	  int i;
+	  
+	  for(i = 0; i  < nbBlocs; i++)
+		printf("%lx\n", tableauEntree[i]);
+	  
+	  uint64_t mot;
+	  for(i = 0; i < nbBlocs; i = i+2)
+	  {
+		  mot = (tableauEntree[i] << 32) + tableauEntree[i+1];
+		  des(cles, &mot, 'd');
+		  resultat[i/2] = mot;
+	  }
+	  
+	  for(i = 0; i < nbBlocs/2; i++)
+		
+	  ecrireFichier(resultat, nbBlocs/2);
+	  
+	  free(tableauEntree);
+	  free(cles);
+	}
    }
    return 1;
  }
