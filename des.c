@@ -131,9 +131,9 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
   * Partie sur les fichiers
   *
   */
-
 uint64_t* tableauEntree;
 int tailleTableauEntree = 0;
+
 // obtenir le num de fichier passé en paramètre
 FILE* ouvrirFichier(char * fichier)
 {
@@ -142,58 +142,65 @@ FILE* ouvrirFichier(char * fichier)
 
 void lireFichier(FILE* fichier)
 {
-	char c;
+  //calcul de la taille du fichier
+  fseek(fichier, 0L, SEEK_END);
+  int tailleTableauEntree = ftell(fichier);
+  printf("Taille du fichier : %d bytes\n\n", tailleTableauEntree);
 
-	 // pointeur au début du fichier
+	// pointeur au début du fichier
 	rewind(fichier);
 
-	//parcours du fichier afin de compter le nombre de caractères du fichier
-	while( ( c =  fgetc(fichier)) != EOF)
-		tailleTableauEntree++;
-
-	if (feof(fichier))
-	{
-	  // fin du fichier
-	  printf("Fichier lu\n");
-	}
-	else
-	{
-	  // une erreur est survenue dans la lecture
-	  printf("Erreur dans le fichier\n");
-	}
-
 	// création dynamique du tableau du résultat
-	unsigned char* res = malloc(tailleTableauEntree + 2);
+	unsigned char* res = malloc(tailleTableauEntree);
 
 	// placement du pointeur au début
 	rewind(fichier);
 
 	// association du tableau aux caractères du fichier
 	int i = 0;
-	while( ( c =  fgetc(fichier)) != EOF )
+  int sz;
+  char c;
+	while( !feof(fichier) )
 	{
+    c =  fgetc(fichier);
 		res[i] = c;
 		i++;
+
+    sz = ftell(fichier);
+    //printf("Position du fichier : %d ", sz);
+
+    //printf("%x\n", c);
+    if (ferror(fichier) != 0)
+    {
+      printf("Erreur dans la lecture du fichier\n");
+    }
 	}
 
-	// blocs de 8
+	// on va manipuler des blocs de 8 caractères
 	int nbBlocs =(tailleTableauEntree/8);
+  //si on a un nombre impair de blocs on prend le nombre pair au desssus
 	if (tailleTableauEntree % 2 == 1) { nbBlocs++; }
+
 	tableauEntree = malloc(sizeof(uint64_t) * nbBlocs);
 
 	int j;
 	int index;
-	// parcours des blocs pour les concaténer
+	/* parcours des blocs pour remplir le tableau tableauEntree
+   * en remplissant chaque bloc
+   * les blocs seront à l'envers d'o`u l'inversion ultérieure
+   */
 	for(i = 0; i < nbBlocs; i++)
 	{
 		for(j = 0; j < 8; j++)
 		{
+      //on prend le j ème caractère du i ème bloc
 			index = j + (i * 8);
+      //et on l'ajoute au ième bloc
 			tableauEntree[i] = (tableauEntree[i] << 8) + res[index];
 		}
 	}
-
 	fclose(fichier);
+  free(res);
 }
 
 void ecrireFichier (uint64_t* mots, int nbMots)
@@ -269,19 +276,6 @@ void ecrireFichier (uint64_t* mots, int nbMots)
    uint64_t res = ( moities[0] << (size/2) ) + (moities[1] );
    free(moities);
  	*mot = res;
- }
-
- /*
-  *  Fonction f de la question A
-  */
- uint64_t fA( uint64_t i )
- {
-   return 37453123 * i;
- }
-
- uint64_t fD( uint64_t i )
- {
-   return 0x123456789ABCDEFLU;
  }
 
  /*
@@ -484,171 +478,6 @@ void ecrireFichier (uint64_t* mots, int nbMots)
      permute(mot, PI_INV, 64, 64);
    }
 
-
- /*
-  * Chiffrement pour la question A
-  */
- void chiffrementA( uint64_t  * mot )
- {
-   uint64_t i;
-   uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
-   for( i=0 ; i < 16 ; i++)
-   {
-       //découpage en deux parties
-       decoupage(mot, moities, 2, 64);
-
-       //on applique le masque, et on shift les 32 bits en première partie
-       uint64_t bloc_l = moities[0] << 32;
-       //on shift les 32 bits en deuxième partie, puis on effectue un XOR avec le résultat de la fonction
-       uint64_t bloc_r = ( moities[1] ) ^ fA(i);
-       //on concatène les deux moitiés
-       *mot = bloc_l + bloc_r;
-   }
-   free(moities);
-   inversion(mot, 64);
- }
-
- /*
-  *  déchiffrement pour la question A
-  */
- void dechiffrementA ( uint64_t  * mot )
- {
-   inversion(mot, 64);
-   int i;
-   uint64_t * moities = malloc( sizeof(uint64_t) * 2 );
-   for( i=15 ; i >= 0 ; i--)
-   {
-       //découpage en deux parties
-       decoupage(mot, moities, 2, 64);
-
-       //on applique le masque, et on shift les 32 bits en première partie
-       uint64_t bloc_l = ( moities[0] ^ fA((uint64_t)i) ) << 32;
-       //on shift les 32 bits en deuxième partie, puis on effectue un XOR avec le résultat de la fonction
-       uint64_t bloc_r = ( moities[1] ) ;
-       //on concatène les deux moitiés
-       *mot = bloc_l + bloc_r;
-   }
-   free(moities);
- }
- /* question a :
-  *  fonction de chiffrement/déchiffrement d'un bloc de 64 bits avec 16 tours sans permutation
-  *  initiale et finaleavec f(i) = 37...23 *i
-  */
- void questionA(uint64_t mot)
- {
-   printf("\nChiffrement question a : \n");
-   printf("Début : %lx \n", mot);
-   chiffrementA(&mot);
-   printf("Fin : %lx \n", mot);
-
-   printf("\nDéchiffrement question a : \n");
-   printf("Début : %lx \n", mot);
-   dechiffrementA(&mot);
-   printf("Fin : %lx \n", mot);
- }
-
- /*  question b:
-  *  fonction de chiffrement et déchiffrement comme A mais aec les permutations
-  *  initiale et finale
-  */
- void questionB(uint64_t mot)
- {
-   printf("\nChiffrement question b : \n");
-   printf("Paramètre : %lx \n", mot);
-
-   permute(&mot, PI, 64, 64);
-   chiffrementA(&mot);
-   permute(&mot, PI_INV, 64, 64);
-   printf("Fin : %lx \n", mot);
-
-   printf("\nDéchiffrement question b : \n");
-   printf("Paramètre : %lx \n", mot);
-   permute(&mot, PI, 64, 64);
-   dechiffrementA(&mot);
-   permute(&mot, PI_INV, 64, 64);
-   printf("Fin : %lx \n", mot);
- }
-
- /* expansion :
-  *  permute un bloc de 32 bits pour en faire un bloc de 48 bits
-  */
- void questionC(uint64_t * mot)
- {
-   printf("\nQuestion c\nParamètre : %lx\n", *mot);
-   expansion(mot);
-   printf("Résultat : %lx\n", *mot);
- }
-
- /* question D
-  *  fonction de substitution appliquant les 8 fonctions de sélection à un bloc de longueur 48 découpé en 8 sous blocs de longueur 6
-  *  et renvoyant un bloc de longueur 32
-  */
- void questionD(uint64_t * mot)
- {
-   printf("\nQuestion d\nParamètre : %lx\n", *mot);
-   substitution(mot);
-   printf("Résultat : %lx\n", *mot);
- }
-
-/*  question e
- *  fonction f appliquant expansion, mélange avec clé constante, k = 0x123456789abcdef
- *  la substitution et la permutation finale
- */
-void questionE(uint64_t * mot)
-{
-  ///génération du tableau contenant la clé
-  uint64_t * cles = malloc( sizeof(uint64_t) * 16 );
-  int i;
-  for( i = 0; i < 16; i++)
-  {///remplissage du tableau de clés avec la clé fixe
-    cles[i] = 0x123456789abcdefUL;
-  }
-  printf("\nQuestion e \n");
-  printf("Paramètre : %lx\n", *mot);
-  des( cles, mot, 'c' );
-  printf("Bloc chiffré : %lx\n", *mot);
-  des( cles, mot, 'd' );
-  printf("Bloc déchiffré : %lx\n", *mot);
-  free(cles);
-}
-
-  /** question f:
-   *  fonction de génération des 16 clésà partir de la clé unique K
-   */
-  void questionF(uint64_t cle)
-  {
-    printf("\nQuestion f \n");
-    uint64_t * cles = malloc(sizeof(uint64_t) * 16);
-    generation_cles( cle, cles );
-
-    int k;
-    for (k = 0; k < 16; k ++)
-    {
-       printf("clé %d : %lx\n", k, cles[k]);
-    }
-
-    free(cles);
-  }
-
-  /** question g :
-   *  fonction de chiffrement et de déchiffrement complète appliquant des sur un bloc
-   */
-  void questionG( uint64_t cle, uint64_t * mot)
-  {
-    printf("\nQuestion g \n");
-    ///diversification de la clé
-    uint64_t * cles = malloc(sizeof(uint64_t) * 16);
-    generation_cles(cle, cles);
-
-    printf("Paramètre : %lx\n", *mot);
-    des(cles, mot, 'c');
-    printf("Chiffrement : %lx\n", *mot);
-    des(cles, mot, 'd');
-    printf("Déchiffrement : %lx\n", *mot);
-
-    free(cles);
-  }
-
 /*
  * fonction qui va inverser chaque mot de 64 bits d'un tableau de nbMots de la manière suivante :
  * (b0b1...b30b31)(b32b33...b62b63) = (b30b31...b0b1)(b62b63...b32b33)
@@ -704,42 +533,8 @@ void inversionMot(uint64_t* mots, int nbMots)
        direction = 'd';
      }
    }
-   printf("\n%c\n", direction);
-
    if( direction == 'z')
-   {///lancer la démo
-     uint64_t bloc = 0x0123456789ABCDEFUL;
-     uint64_t cle = 0x0123456789ABCDEFUL;
-
-     ///Question a : chiffrement sans Pi et PI_INV
-     bloc = 0x0123456789ABCDEFUL;
-     questionA(bloc);
-
-     ///Question b : chiffrement et déchiffrement avec PI et PI_INV
-     bloc = 0x0123456789ABCDEFUL;
-     questionB(bloc);
-
-     ///Question c : expansion
-     bloc = 0xefffffff;
-     questionC(&bloc);
-     // valeur attendue : 0xf5ffffffffff
-
-     ///Question d : substitution
-     bloc = 0b001100110011010101101010000111111000000000111111;
-     questionD(&bloc);
-     // valeur attendue : 0xB65BC14B
-
-     ///Question e : chiffrement et déchiffrement avec fonction f complète
-     bloc = 0x0123456789ABCDEFUL;
-     questionE(&bloc);
-
-     ///Question f : génération des clés
-     bloc = 0x0123456789ABCDEFUL;
-     questionF(cle);
-
-     ///Question G : chiffrement et déchiffrement complet
-     bloc = 0x0123456789ABCDEFUL;
-     questionG(cle, &bloc);
+   {
    }
    else
    {///chiffrer ou déchiffrer le document demandé
@@ -769,10 +564,14 @@ void inversionMot(uint64_t* mots, int nbMots)
 
        if(direction == 'd')
       {///déchiffrement
+        for(i = 0; i < tailleTableauEntree; i++)
+        {
+          if(tableauEntree[i] != 0)
+          {
+            printf("babouche : %lx\n", tableauEntree[i]);
+          }
+        }
 
-for(i = 0; i < tailleTableauEntree; i++)
-	printf("%lx\n", tableauEntree[i]);
-	
         // concaténation de deux blocs deux à deux, dans le tableau resultat
         for(i = 0; i < nbBlocs; i++)
         {
@@ -780,17 +579,12 @@ for(i = 0; i < tailleTableauEntree; i++)
           des(cles, &mot, 'd'); // DES
           resultat[i] = mot;
         }
-		
 
         // inversion du tableau
-  
         inversionMot(resultat, nbBlocs);
 
-		for(i = 0; i < nbBlocs; i++)
-		{	printf("%lx\n", resultat[i]); }
         /// écriture dans le fichier
         ecrireFichier(resultat, nbBlocs);
-
 
       }
       else
@@ -803,14 +597,12 @@ for(i = 0; i < tailleTableauEntree; i++)
           resultat[i] = mot;
         }
 
-        for(i = 0; i < nbBlocs; i++)
-        {  printf("%lx\n", resultat[i]); }
-
         // inversion du tableau
         inversionMot(resultat, nbBlocs);
 
         /// écriture dans le fichier
         ecrireFichier(resultat, nbBlocs);
+
       }
       free(tableauEntree);
       free(cles);
