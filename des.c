@@ -132,7 +132,8 @@ int CYCLE[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
   *
   */
 uint64_t* tableauEntree;
-int tailleTableauEntree = 0;
+int tailleTableauEntree;
+int nbBlocs;
 
 // obtenir le num de fichier passé en paramètre
 FILE* ouvrirFichier(char * fichier)
@@ -144,7 +145,7 @@ void lireFichier(FILE* fichier)
 {
   //calcul de la taille du fichier
   fseek(fichier, 0L, SEEK_END);
-  int tailleTableauEntree = ftell(fichier);
+  tailleTableauEntree = ftell(fichier);
   printf("Taille du fichier : %d bytes\n\n", tailleTableauEntree);
 
 	// pointeur au début du fichier
@@ -153,8 +154,6 @@ void lireFichier(FILE* fichier)
 	// création dynamique du tableau du résultat
 	unsigned char* res = malloc(tailleTableauEntree);
 
-	// placement du pointeur au début
-	rewind(fichier);
 
 	// association du tableau aux caractères du fichier
 	int i = 0;
@@ -167,7 +166,7 @@ void lireFichier(FILE* fichier)
 		i++;
 
     sz = ftell(fichier);
-    //printf("Position du fichier : %d ", sz);
+    printf("Position du fichier : %d, valeur : %c \n", sz, c);
 
     //printf("%x\n", c);
     if (ferror(fichier) != 0)
@@ -177,9 +176,11 @@ void lireFichier(FILE* fichier)
 	}
 
 	// on va manipuler des blocs de 8 caractères
-	int nbBlocs =(tailleTableauEntree/8);
+	nbBlocs =(tailleTableauEntree/8);
+
   //si on a un nombre impair de blocs on prend le nombre pair au desssus
 	if (tailleTableauEntree % 2 == 1) { nbBlocs++; }
+  printf("nbBlocs lecture : %d\n", nbBlocs);
 
 	tableauEntree = malloc(sizeof(uint64_t) * nbBlocs);
 
@@ -202,14 +203,20 @@ void lireFichier(FILE* fichier)
 	fclose(fichier);
   free(res);
 }
-
+/*
+ * écrit nbMots moys de mots[] dans le fichier sortie.txt
+ *
+ */
 void ecrireFichier (uint64_t* mots, int nbMots)
 {
-	int sortie = open("sortie.txt", O_WRONLY|O_CREAT,0640);
-
+    //création ou ouverture du fichier de sortie
+	  int sortie = open("sortie.txt", O_WRONLY|O_CREAT,0640);
+    printf(" nbmots : %d", nbMots);
 		int i;
 		for (i = 0; i < nbMots; i++)
+    {
 			write(sortie, &mots[i], sizeof(uint64_t));
+    }
 		close(sortie);
 }
 
@@ -557,7 +564,8 @@ void inversionMot(uint64_t* mots, int nbMots)
        uint64_t * cles = malloc(sizeof(uint64_t) * 16);
        generation_cles(cle, cles);
 
-       int nbBlocs = tailleTableauEntree/8 + 1;
+       //affectation du nombre d'octets
+       int nbBlocs = tailleTableauEntree/8;
        uint64_t * resultat = malloc(sizeof(uint64_t) * (nbBlocs));
        int i;
        uint64_t mot;
@@ -581,7 +589,10 @@ void inversionMot(uint64_t* mots, int nbMots)
         }
 
         // inversion du tableau
+        printf("nbblocs1 : %d\n", nbBlocs);
         inversionMot(resultat, nbBlocs);
+
+        printf("nbblocs2 : %d\n", nbBlocs);
 
         /// écriture dans le fichier
         ecrireFichier(resultat, nbBlocs);
